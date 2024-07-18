@@ -1,35 +1,27 @@
-import React, { FC, useState, useEffect, useMemo } from "react";
+import React, { FC, useMemo, useState } from "react";
 import { Listbox, ListboxButton, ListboxOptions } from "@headlessui/react";
 import { ChevronUpDownIcon } from "@heroicons/react/20/solid";
 import { useGetAuthorsAndPosts } from "../hooks/useGetAuthorsAndPosts";
-import { Post, Author } from "../interfaces/app_interfaces";
 import SingleAuthor from "./SingleAuthor";
 import SinglePost from "./SinglePost";
 
 const PostList: FC = () => {
-  const [posts, setPosts] = useState<Post[]>([]);
-  const [authors, setAuthors] = useState<Author[]>([]);
+  const { authors, posts, loading, error } = useGetAuthorsAndPosts();
   const [selectedAuthor, setSelectedAuthor] = useState("");
-
-  const data = useGetAuthorsAndPosts();
-
-  useEffect(() => {
-    const createNewTables = () => {
-      const postsArr = data[1].posts ? data[1].posts : [];
-      const authorArr = data[0].authors ? data[0].authors : [];
-
-      setAuthors(authorArr);
-      setPosts(postsArr);
-    };
-
-    createNewTables();
-  }, [data, posts, authors]);
 
   const onDisplayList = useMemo(() => {
     if (selectedAuthor && posts) {
       return posts.filter((item) => item.name === selectedAuthor);
     } else return posts;
   }, [selectedAuthor, posts]);
+
+  if (loading) {
+    return <div>Loading...</div>;
+  }
+
+  if (error) {
+    return <div>Error: {error}</div>;
+  }
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-4">
@@ -55,7 +47,7 @@ const PostList: FC = () => {
                 className="absolute z-10 mt-1 max-h-56 w-64 overflow-auto rounded-md bg-white py-1 text-base shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none data-[closed]:data-[leave]:opacity-0 data-[leave]:transition data-[leave]:duration-100 data-[leave]:ease-in sm:text-sm"
               >
                 {authors &&
-                  authors.map(({ id, name }: Author) => (
+                  authors.map(({ id, name }) => (
                     <SingleAuthor key={id} name={name} />
                   ))}
               </ListboxOptions>

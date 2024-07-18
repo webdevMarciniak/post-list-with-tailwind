@@ -1,43 +1,51 @@
 import { useState, useEffect } from "react";
-import axios from "axios";
 import { Post, Author } from "../interfaces/app_interfaces";
 
-export const useGetAuthorsAndPosts = () => {
+const fetchAuthorsAndPosts = async (fetch: typeof global.fetch) => {
+  const [usersResponse, postsResponse] = await Promise.all([
+    fetch("https://jsonplaceholder.typicode.com/users"),
+    fetch("https://jsonplaceholder.typicode.com/posts"),
+  ]);
+
+  if (!usersResponse.ok || !postsResponse.ok) {
+    throw new Error("Network error");
+  }
+
+  const users: Author[] = await usersResponse.json();
+  const posts: Post[] = await postsResponse.json();
+
+  const newList: Post[] = posts.map((post: Post) => {
+    const user = users.find((user: Author) => user.id === post.userId);
+    return user ? { ...post, name: user.name } : post;
+  });
+
+  return { users, newList };
+};
+
+export const useGetAuthorsAndPosts = (
+  customFetch: typeof global.fetch = global.fetch
+) => {
   const [posts, setPosts] = useState<Post[]>([]);
   const [authors, setAuthors] = useState<Author[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const endpoints: string[] = [
-      "https://jsonplaceholder.typicode.com/users",
-      "https://jsonplaceholder.typicode.com/posts",
-    ];
-
-    axios.all(endpoints.map((endpoint) => axios.get(endpoint))).then(
-      axios.spread(({ data: users }, { data: posts }) => {
-        const newList: Post[] = [];
-        posts.forEach((post: Post) => {
-          users.forEach((user: Author) => {
-            if (post.userId === user.id) {
-              const obj = {
-                userId: post.userId,
-                id: post.id,
-                title: post.title,
-                body: post.body,
-                name: user.name,
-              };
-              obj && newList.push(obj);
-            }
-          });
-        });
-
+    const fetchData = async () => {
+      try {
+        const { users, newList } = await fetchAuthorsAndPosts(customFetch);
         setAuthors(users);
         setPosts(newList);
-      }),
-      (error) => {
-        console.log(error.message);
+      } catch (error) {
+        setError((error as Error).message);
+        console.error("Error fetching data:", error);
+      } finally {
+        setLoading(false);
       }
-    );
-  }, []);
+    };
 
-  return [{ authors: authors }, { posts: posts }];
+    fetchData();
+  }, [customFetch]);
+
+  return { authors, posts, loading, error };
 };
